@@ -1,0 +1,192 @@
+.dashboard-container {
+  display: flex;
+  height: 100vh; /* full screen height */
+  overflow: hidden; /* prevent double-scroll */
+  background: #f5f7fb;
+}
+
+.dashboard-root { 
+    display:flex; 
+    min-height:100vh; 
+    font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; 
+    background: #f6f7fb; 
+}
+
+.main-area { 
+    flex:1; 
+    padding:20px; 
+    transition: margin-left 0.2s ease; 
+    margin-left: 290px; /* space for fixed sidebar (default wide) */
+}
+
+.main-area.expanded {
+  margin-left: 88px; /* when sidebar is collapsed */
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.main-header h2 {
+  margin: 0;
+  color: #0b2240;
+}
+
+/* --- Controls Section --- */
+.controls {
+  background: white;
+  padding: 12px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(33, 40, 60, 0.04);
+  margin-bottom: 16px;
+}
+
+.imported-banner {
+  position: fixed;
+  left: 320px; /* keep it next to the fixed sidebar */
+  right: 20px;
+  top: 14px;
+  background: #fff9e6;
+  border: 1px solid #ffecb5;
+  color: #5a3e00;
+  padding: 10px 14px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  z-index: 60;
+}
+.imported-banner .imported-dismiss {
+  background: transparent;
+  border: none;
+  color: #5a3e00;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.fetching-indicator {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0b67ff;
+  font-weight: 600;
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(11,103,255,0.15);
+  border-top-color: #0b67ff;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.controls textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #eef2ff;
+  min-height: 80px;
+}
+
+.controls-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.controls-row button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #0b67ff;
+  color: white;
+  border: none;
+}
+
+/* --- Workspace & Panels --- */
+.workspace {
+  display: flex;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.panel {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(33, 40, 60, 0.04);
+  padding: 12px;
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel h3 {
+  margin: 0 0 8px 0;
+  color: #0b2240;
+}
+
+.panel-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 6px;
+  background: #fbfcff;
+}
+
+.text-block {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 14px;
+  color: #0b1730;
+}
+
+.panel-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.panel-actions button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #eef4ff;
+  border: 1px solid #dfeeff;
+  cursor: pointer;
+}
+
+/* --- Inline Editable Title --- */
+.session-title-display {
+  font-size: 1.6rem;
+  font-weight: 600;
+  outline: none;
+  border: none;
+  padding: 4px 0;
+  min-height: 32px;
+  cursor: text;
+  color: #0b2240;
+}
+
+.session-title-display:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+}
+
+.session-title-display:focus {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+}
+
+.session-title-display:empty:before {
+  content: "Untitled session";
+  opacity: 0.5;
+}

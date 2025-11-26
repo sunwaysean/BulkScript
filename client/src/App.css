@@ -1,0 +1,182 @@
+/* ---------- Layout ---------- */
+.App {
+  font-family: system-ui, sans-serif;
+  text-align: center;
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+  color: #222;
+}
+
+/* ---------- Headings ---------- */
+h1 {
+  font-size: 2.2rem;
+  margin-bottom: 1.5rem;
+  color: #004aad;
+}
+
+h2, h3, h4 {
+  color: #004aad;
+  margin-bottom: 0.8rem;
+}
+
+h3 {
+  margin-top: 1.8rem;
+  font-size: 1.4rem;
+}
+
+/* ---------- Inputs ---------- */
+textarea,
+input {
+  width: 90%;
+  padding: 12px;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+  resize: vertical;
+  transition: 0.2s ease;
+}
+
+textarea:focus,
+input:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 4px rgba(0, 123, 255, 0.4);
+}
+
+/* ---------- Buttons ---------- */
+button {
+  margin: 10px 8px;
+  padding: 10px 22px;
+  cursor: pointer;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  transition: background 0.3s ease, transform 0.1s ease;
+}
+
+button:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  background: #b0b0b0;
+  cursor: not-allowed;
+}
+
+button + button {
+  margin-left: 12px;
+}
+
+/* ---------- Transcript / Analysis ---------- */
+.transcript-box,
+.analysis-output {
+  background: #f9f9f9;
+  border-radius: 10px;
+  padding: 1.4rem;
+  text-align: left;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.7;
+  margin: 1.5rem auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 16.5px;
+  max-width: 750px;
+  width: 90%;
+  text-align: justify;
+}
+
+/* transcript text scrollable if long */
+.transcript-box p {
+  white-space: pre-wrap;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* ---------- Analysis Output ---------- */
+.analysis-output {
+  background: #eef4ff;
+  border-left: 6px solid #007bff;
+  padding: 1.2rem;
+  margin-top: 1rem;
+}
+
+/* ---------- Results Layout ---------- */
+.results {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+/* ---------- Video Result Card ---------- */
+.video-result {
+  background: #f9f9f9;
+  border-radius: 10px;
+  padding: 1.2rem;
+  text-align: left;
+  line-height: 1.6;
+  margin: 1rem auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 16px;
+  max-width: 750px;
+  width: 90%;
+  border-left: 6px solid #007bff;
+}
+
+.video-result h3 {
+  margin-bottom: 0.6rem;
+  color: #0056b3;
+  font-size: 1.2rem;
+}
+
+.video-result p {
+  margin: 0.4rem 0;
+}
+
+/* ---------- Utility ---------- */
+hr {
+  border: none;
+  height: 1px;
+  background-color: #ddd;
+  margin: 2rem 0;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+/* ---------- Copy Buttons ---------- */
+.copy-button {
+  background: #f1f1f1;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: 0.3s ease;
+  margin-top: 10px;
+}
+
+.copy-button:hover {
+  background: #e4e4e4;
+}
+
+.copy-button.copied {
+  background: #28a745;
+  color: white;
+  border-color: #28a745;
+}
+

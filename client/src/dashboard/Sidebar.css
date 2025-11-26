@@ -1,0 +1,252 @@
+/* src/dashboard/Sidebar.css */
+
+/* --- Main Container --- */
+.sidebar {
+  width: 290px;
+  min-width: 290px;
+  background: #f8fafc;
+  border-right: 1px solid rgba(15, 23, 42, 0.06);
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+
+/* --- Collapsed State Overrides --- */
+.sidebar.collapsed {
+  width: 80px; /* Slightly wider to center icons comfortably */
+  min-width: 80px;
+  padding: 16px 10px;
+}
+
+/* When collapsed, we hide the text inside the button and history items */
+.sidebar.collapsed .btn-text,
+.sidebar.collapsed .history-item .title,
+.sidebar.collapsed .history-item .meta {
+  display: none;
+}
+
+/* Center the hamburger and list items when collapsed */
+.sidebar.collapsed .sidebar-top,
+.sidebar.collapsed .sidebar-actions,
+.sidebar.collapsed .history-list {
+  align-items: center;
+}
+
+/* --- Header & Toggle --- */
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px; /* Fixed height for stability */
+  color: #0b2240;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: #0b2240;
+  white-space: nowrap;
+}
+
+.hamburger {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #64748b;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.hamburger:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* --- New Session Button --- */
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.new-session {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #0b67ff;
+  font-weight: 600;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  height: 42px;
+}
+
+.new-session:hover {
+  border-color: #bad5ff;
+  box-shadow: 0 4px 12px rgba(11, 103, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+/* When collapsed, New Session button becomes a square circle */
+.sidebar.collapsed .new-session {
+  width: 42px;
+  padding: 0;
+  border-radius: 50%;
+  background: #0b67ff; /* Blue background when small */
+  color: white;
+}
+
+/* Make a dedicated scroll container so footer remains visible */
+.sidebar-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- History List --- */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-bottom: 12px; /* breathing room for footer */
+}
+
+/* Custom Scrollbar */
+.history-list::-webkit-scrollbar { width: 4px; }
+.history-list::-webkit-scrollbar-track { background: transparent; }
+.history-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.history-item {
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  min-height: 46px; /* Ensure clickable area even if empty */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.history-item:hover {
+  background: white;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.history-item.active {
+  background: white;
+  border-color: #bfdbfe;
+  border-left: 3px solid #0b67ff;
+  box-shadow: 0 4px 12px rgba(11, 103, 255, 0.08);
+}
+
+.history-item .title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item .meta {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+.session-actions {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 6px 8px;
+  color: #475569;
+  border-radius: 6px;
+}
+.session-actions:hover { background: rgba(2,6,23,0.04); color: #0b2240; }
+
+/* Visual trick: When collapsed, show a 'File' icon via CSS since text is hidden */
+.sidebar.collapsed .history-item {
+  align-items: center;
+}
+.sidebar.collapsed .history-item::before {
+  content: "📄"; /* Or use a simple shape */
+  font-size: 18px;
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+.sidebar.collapsed .history-item.active::before {
+  opacity: 1;
+  filter: none;
+}
+
+/* --- Footer --- */
+.sidebar-footer {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 12px;
+  flex: 0 0 auto;
+  background: transparent;
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-email {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .user-email { display: none; }
+
+.logout {
+  width: 100%;
+  background: white;
+  border: 1px solid #f1f5f9;
+  padding: 8px;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout:hover {
+  background: #fff1f2;
+  color: #e11d48;
+  border-color: #fecdd3;
+}
+.sidebar.collapsed .logout {
+  width: 42px;
+  padding: 6px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.muted { color: #94a3b8; font-size: 13px; text-align: center; margin-top: 20px; }
