@@ -1,4 +1,3 @@
-// src/firestore.js
 import {
   collection,
   addDoc,
@@ -14,14 +13,14 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// Save a session (FULL payload explicitly defined)
+// Save a session 
 export const saveSessionForUser = async (uid, session) => {
   const col = collection(db, "users", uid, "history");
 
   const payload = {
     title: session.title,
     urls: session.urls || [],
-    videos: session.videos || [],           // REQUIRED for reload
+    videos: session.videos || [],           
     transcript: session.transcript || "",
     analysis: session.analysis || "",
     createdAt: serverTimestamp(),
@@ -40,7 +39,6 @@ export const updateSession = async (uid, sessionId, session) => {
     videos: session.videos || [],
     transcript: session.transcript || "",
     analysis: session.analysis || "",
-    // don't overwrite createdAt; provide an updatedAt to denote edits
     updatedAt: serverTimestamp()
   };
   await updateDoc(ref, payload);
@@ -88,7 +86,6 @@ export const listenUserHistory = (uid, callback) => {
   return unsub;
 };
 
-// One-time fetch helper (useful for diagnostics / fallbacks)
 export const fetchUserHistoryOnce = async (uid) => {
   const col = collection(db, "users", uid, "history");
   const q = query(col, orderBy("createdAt", "desc"));

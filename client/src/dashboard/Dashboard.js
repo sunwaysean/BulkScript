@@ -1,19 +1,19 @@
-// src/dashboard/Dashboard.js
 import React, { useEffect, useState, useRef } from "react";
 import Sidebar from "./Sidebar";
 import "./Dashboard.css";
 import useAuth from "../hooks/useAuth";
 import { logout } from "../firebase";
 import { listenUserHistory, saveSessionForUser, getSession, updateSession, deleteSession } from "../firestore";
+import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
-const BACKEND_URL = "http://127.0.0.1:5000";
+const BACKEND_URL = "http://127.0.0.1:5001";
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const nav = useNavigate();
 
-  // UI state
+  
   const [collapsed, setCollapsed] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [current, setCurrent] = useState(null); // structure described below
@@ -21,11 +21,16 @@ export default function Dashboard() {
   const [loadingTranscripts, setLoadingTranscripts] = useState(false);
   const [importedCount, setImportedCount] = useState(null);
 
-  // analyzingState:
-  // - null => idle
-  // - { type: 'single', idx } => analyzing single video index
-  // - { type: 'all', idx } => analyzing queue of videos, idx is current index in queue
+  
   const [analyzingState, setAnalyzingState] = useState(null);
+
+  // throughput test state
+  const [throughputResults, setThroughputResults] = useState(null);
+  const [runningThroughputTest, setRunningThroughputTest] = useState(false);
+
+  // Admin check
+  const ADMIN_EMAILS = ['seanhealy0210@gmail.com']; 
+  const isAdmin = user && ADMIN_EMAILS.includes(user.email);
 
   // local refs
   const mountedRef = useRef(true);
@@ -59,7 +64,7 @@ export default function Dashboard() {
           // make sure current matches the shape used by this component
           const first = items[0];
           // If Firestore saved sessions follow { title, urls, transcript, analysis, videos? } shape,
-          // we try to use videos array if present, otherwise create videos from transcript field.
+          // try to use videos array if present, otherwise create videos from transcript field.
           if (first.videos && Array.isArray(first.videos)) {
             return { ...first };
           } else {
@@ -106,7 +111,7 @@ export default function Dashboard() {
       id: null,
       title: "Untitled session",
       urls: [],
-      videos: [], // each video: { url, title, transcript, analysis }
+      videos: [],  
       createdAt: null,
     });
     setUrlsText("");
@@ -134,12 +139,10 @@ export default function Dashboard() {
 
   // Helper: saves the current session to Firestore and updates current.id
   const persistCurrentSession = async (sessionObj) => {
-    // sessionObj should contain: title, urls, videos (or transcript/analysis)
     const toSave = {
       title: sessionObj.title || "Untitled session",
       urls: sessionObj.urls || [],
       videos: sessionObj.videos ?? [],
-      // legacy fields for compatibility
       transcript: sessionObj.videos && sessionObj.videos.length ? sessionObj.videos.map(v => v.transcript).join("\n\n") : sessionObj.transcript || "",
       analysis: sessionObj.videos && sessionObj.videos.length ? sessionObj.videos.map(v => v.analysis).join("\n\n") : sessionObj.analysis || "",
       createdAt: new Date()
@@ -163,7 +166,6 @@ export default function Dashboard() {
 
         const localId = sessionObj.id || `local-${Date.now()}`;
         const item = { id: localId, ...toSave };
-        // If we have an existing id that isn't local- prefix (unlikely), just prepend
         const filtered = local.filter((it) => it.id !== item.id);
         filtered.unshift(item);
         window.localStorage.setItem('local_sessions', JSON.stringify(filtered));
@@ -179,7 +181,7 @@ export default function Dashboard() {
 
     try {
       console.log('persistCurrentSession: saving to firestore for uid', user.uid);
-      // If sessionObj has an id, update that existing document rather than creating a new one
+      // If sessionObj has an id, existing document is updated rather than creating a new one
       if (sessionObj.id) {
         try {
           await updateSession(user.uid, sessionObj.id, toSave);
@@ -241,7 +243,7 @@ export default function Dashboard() {
     }
   };
 
-  // Delete a session (fires deleteSession for authenticated users, local update for unauthenticated)
+  // Delete a session 
   const handleDeleteSession = async (s) => {
     if (!s) return;
     const ok = window.confirm(`Delete session "${s.title || 'Untitled'}"? This cannot be undone.`);
@@ -279,7 +281,6 @@ export default function Dashboard() {
   const sanitizeYoutubeUrl = (u) => {
     try {
       const url = new URL(u);
-      // If it's a youtube short or youtu.be link, handle accordingly
       if (url.hostname.includes('youtu.be')) {
         const id = url.pathname.slice(1);
         if (id) return `https://www.youtube.com/watch?v=${id}`;
@@ -290,7 +291,6 @@ export default function Dashboard() {
         if (listId) return `https://www.youtube.com/playlist?list=${listId}`;
         const v = url.searchParams.get('v');
         if (v) return `https://www.youtube.com/watch?v=${v}`;
-        // If path contains /embed/<id>
         const parts = url.pathname.split('/');
         const embedIdx = parts.indexOf('embed');
         if (embedIdx !== -1 && parts[embedIdx + 1]) return `https://www.youtube.com/watch?v=${parts[embedIdx + 1]}`;
@@ -329,9 +329,17 @@ export default function Dashboard() {
 
       console.log("fetchTranscripts: sending request", { BACKEND_URL, urlList, sanitized });
       setImportedCount(null);
+      // attach Firebase ID token if available
+      let token = null;
+      try {
+        token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      } catch (e) {
+        console.warn('Could not get id token', e);
+      }
+      const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
       const res = await fetch(`${BACKEND_URL}/transcripts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ urls: sanitized }),
       });
       console.log("fetchTranscripts: response status", res.status);
@@ -343,7 +351,8 @@ export default function Dashboard() {
       }
 
       // Build videos array: preserve title if present, transcript if present
-      const videos = data.map((d, i) => ({
+      const resultsArr = Array.isArray(data) ? data : data.results;
+      const videos = resultsArr.map((d, i) => ({
         url: d.url || urlList[i] || "",
         title: d.title || `Video ${i + 1}`,
         transcript: d.transcript || "",
@@ -396,10 +405,18 @@ export default function Dashboard() {
     setAnalyzingState({ type: "single", idx: videoIndex });
 
     try {
+      // attach id token if present
+      let token = null;
+      try {
+        token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      } catch (e) {
+        console.warn('Could not get id token', e);
+      }
+      const analyzeHeaders = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
       const res = await fetch(`${BACKEND_URL}/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // we ask backend to analyze this single transcript
+        headers: analyzeHeaders,
+        // ask backend to analyze this single transcript
         body: JSON.stringify({ transcript: video.transcript }),
       });
       const data = await res.json();
@@ -449,9 +466,16 @@ export default function Dashboard() {
         if (!video.transcript) continue;
 
         try {
+          let token = null;
+          try {
+            token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+          } catch (e) {
+            console.warn('Could not get id token', e);
+          }
+          const analyzeHeaders = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
           const res = await fetch(`${BACKEND_URL}/analyze`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: analyzeHeaders,
             body: JSON.stringify({ transcript: video.transcript }),
           });
           const data = await res.json();
@@ -491,6 +515,77 @@ export default function Dashboard() {
     }
   };
 
+  // Run throughput test with three different LLM configs
+  const runThroughputTest = async () => {
+    if (!current || !current.videos || current.videos.length === 0 || !current.videos[0].transcript) {
+      alert("No transcript available to test throughput");
+      return;
+    }
+
+    const transcript = current.videos[0].transcript;
+    if (transcript.trim().length === 0) {
+      alert("Transcript is empty");
+      return;
+    }
+
+    setRunningThroughputTest(true);
+    setThroughputResults(null);
+
+    const configs = [
+      { name: "config_low_threads", n_threads: 2, n_batch: 64, n_gpu_layers: 20 },
+      { name: "config_mid", n_threads: 6, n_batch: 128, n_gpu_layers: 30 },
+      { name: "config_high_threads", n_threads: 12, n_batch: 256, n_gpu_layers: 40 }
+    ];
+
+    const results = [];
+
+    try {
+      for (const cfg of configs) {
+        console.log(`Running throughput test for ${cfg.name}...`);
+
+        let token = null;
+        try {
+          token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+        } catch (e) {
+          console.warn('Could not get id token', e);
+        }
+        const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+
+        const res = await fetch(`${BACKEND_URL}/analyze_with_config`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            transcript,
+            config: cfg,
+            max_tokens: 300
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || `Server responded ${res.status}`);
+        }
+
+        results.push({
+          config: cfg.name,
+          metrics: data.metrics,
+          config_params: cfg
+        });
+
+        console.log(`Completed ${cfg.name}:`, data.metrics);
+      }
+
+      setThroughputResults(results);
+      console.log("Throughput test completed:", results);
+
+    } catch (e) {
+      console.error("Throughput test failed:", e);
+      alert("Throughput test failed: " + e.message);
+    } finally {
+      setRunningThroughputTest(false);
+    }
+  };
+
   // Copy helper
   const copyToClipboard = async (text) => {
     if (!navigator.clipboard) {
@@ -510,7 +605,6 @@ export default function Dashboard() {
   const onTitleChange = (newTitle) => {
     setCurrent((prev) => {
       if (!prev) return prev;
-      // If blank, don't commit yet; we'll handle blank on blur fallback
       return { ...prev, title: newTitle };
     });
   };
@@ -554,6 +648,7 @@ export default function Dashboard() {
     setCurrent(null);
     setUrlsText("");
     setAnalyzingState(null);
+    setThroughputResults(null);
   };
 
   // Render helpers
@@ -695,6 +790,64 @@ export default function Dashboard() {
               {analyzingState && analyzingState.type === "all" ? `Analyzing ${analyzingState.idx + 1}/${current?.videos?.length}` : "Analyze All"}
             </button>
           </div>
+
+          {/* Throughput Test Section - Admin Only */}
+          {isAdmin && (
+            <div className="throughput-test-section" style={{ marginTop: 20, padding: 12, border: "1px solid #e5e7eb", borderRadius: 8 }}>
+              <h4 style={{ margin: 0, marginBottom: 8 }}>LLM Throughput Test (Admin Only)</h4>
+              <p style={{ margin: 0, marginBottom: 12, fontSize: 14, color: "#6b7280" }}>
+                Test throughput with different LLM parameters using the current transcript.
+              </p>
+              <button
+                onClick={runThroughputTest}
+                disabled={runningThroughputTest || !current || !current.videos || !current.videos[0]?.transcript}
+                style={{ marginBottom: 12 }}
+              >
+                {runningThroughputTest ? "Running Test..." : "Run Throughput Test"}
+              </button>
+
+              {throughputResults && (
+                <div className="throughput-results">
+                  <h5>Results:</h5>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#f9fafb" }}>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "left" }}>Config</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>Latency (s)</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>Tokens/sec</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>Total Tokens</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>Quality (1-5)</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>Grounded (1-5)</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>Concise (1-5)</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>Insight (1-5)</th>
+                        <th style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "left" }}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {throughputResults.map((result, idx) => (
+                        <tr key={idx}>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8 }}>{result.config}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>{result.metrics.latency_seconds.toFixed(2)}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>{result.metrics.throughput_tokens_per_second.toFixed(2)}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>{result.metrics.total_tokens}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>{result.metrics.quality_score !== null ? result.metrics.quality_score : 'N/A'}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>{result.metrics.evaluation?.groundedness || 'N/A'}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>{result.metrics.evaluation?.conciseness || 'N/A'}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "right" }}>{result.metrics.evaluation?.insight || 'N/A'}</td>
+                          <td style={{ border: "1px solid #e5e7eb", padding: 8, textAlign: "left", fontSize: 12, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }} title={result.metrics.evaluation?.reason || 'N/A'}>
+                            {result.metrics.evaluation?.reason || 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button onClick={() => setThroughputResults(null)} style={{ marginTop: 8, fontSize: 12 }}>
+                    Clear Results
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="workspace">

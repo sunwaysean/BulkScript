@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "iterations": 5,
+    "max_tokens": 300
+  },
+  "results": [
+    {
+      "config": "config_low_threads",
+      "params": {
+        "n_threads": 2,
+        "n_batch": 64,
+        "n_gpu_layers": 20
+      },
+      "load_time_s": 4.210821151733398,
+      "avg_call_s": 15.835139226913451,
+      "sd_call_s": 8.755203892316915,
+      "iterations": 5,
+      "total_estimated_tokens": 764,
+      "estimated_tokens_per_sec": 9.649425736674335,
+      "requested_tokens_per_sec": 18.945207598182595,
+      "per_iteration_s": [
+        11.409697771072388,
+        17.00039029121399,
+        6.348231792449951,
+        29.77262806892395,
+        14.644748210906982
+      ],
+      "per_iteration_est_tokens": [
+        102,
+        161,
+        61,
+        300,
+        140
+      ]
+    },
+    {
+      "config": "config_mid",
+      "params": {
+        "n_threads": 6,
+        "n_batch": 128,
+        "n_gpu_layers": 30
+      },
+      "load_time_s": 0.6094670295715332,
+      "avg_call_s": 11.059320640563964,
+      "sd_call_s": 5.763757801713957,
+      "iterations": 5,
+      "total_estimated_tokens": 656,
+      "estimated_tokens_per_sec": 11.863296513782018,
+      "requested_tokens_per_sec": 27.126440199196686,
+      "per_iteration_s": [
+        8.512784004211426,
+        9.265433073043823,
+        4.843744993209839,
+        20.13421320915222,
+        12.540427923202515
+      ],
+      "per_iteration_est_tokens": [
+        102,
+        106,
+        61,
+        247,
+        140
+      ]
+    },
+    {
+      "config": "config_high_threads",
+      "params": {
+        "n_threads": 12,
+        "n_batch": 256,
+        "n_gpu_layers": 40
+      },
+      "load_time_s": 0.48682332038879395,
+      "avg_call_s": 17.726158809661865,
+      "sd_call_s": 6.558308459345874,
+      "iterations": 5,
+      "total_estimated_tokens": 734,
+      "estimated_tokens_per_sec": 8.281546023382393,
+      "requested_tokens_per_sec": 16.92414037475966,
+      "per_iteration_s": [
+        12.04329514503479,
+        12.111533164978027,
+        27.942891120910645,
+        19.543455839157104,
+        16.98961877822876
+      ],
+      "per_iteration_est_tokens": [
+        133,
+        110,
+        209,
+        150,
+        132
+      ]
+    }
+  ]
+}

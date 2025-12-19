@@ -4,23 +4,24 @@ from youtube_transcript_api import YouTubeTranscriptApi
 import yt_dlp
 import whisper
 import os
-import re # Added for better video ID extraction
-from hub import analyze_text # Make sure you have this file
+import re 
+from hub import analyze_text, estimate_token_count, MODEL_PATH 
+from llama_cpp import Llama
+import gc
 from pydub import AudioSegment
+import time
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}}, supports_credentials=True)
 
 # Load Whisper model
-# Consider using a smaller model if speed is an issue, or larger if accuracy is key
 print("Loading Whisper base model...")
 model = whisper.load_model("base")
 print("Whisper model loaded.")
 
 # ------------------------------
-# Helpers
-# ------------------------------
 
+# Helpers
 def extract_video_id(url):
     """
     Extracts the YouTube video ID from various URL formats.
@@ -31,30 +32,45 @@ def extract_video_id(url):
         r'(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})',
         r'(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})'
     ]
-    
+    import re
     for pattern in patterns:
         match = re.search(pattern, url)
         if match:
             return match.group(1)
-            
     # Fallback for simple v= links
     if "v=" in url:
         video_id = url.split("v=")[-1].split("&")[0]
         if len(video_id) == 11:
             return video_id
-            
     return None
+# ------------------------------
+
+def calculate_quality_score(summary, transcript):
+    """
+    Calculate quality score (1-5) for how well the summary captures the transcript.
+    Uses the global LLM instance with detailed evaluation.
+    """
+    if not summary or not summary.strip():
+        return 3  
+    
+    try:
+        from hub import evaluate_analysis
+        eval_result = evaluate_analysis(transcript, summary)
+        # Return insight score as overall quality
+        return eval_result.get("insight", 3)
+    except Exception as e:
+        print(f"Quality evaluation failed: {e}")
+        return 3  # Default to average
 
 def chunk_text(text, max_length=3000):
     """Split text into smaller chunks (for LLM analysis)."""
-    # This is a simplified chunker, you might want to split on sentences.
     chunks = []
     while len(text) > max_length:
         split_index = text.rfind(" ", 0, max_length)
-        if split_index == -1: # No spaces, hard cut
+        if split_index == -1: 
             split_index = max_length
         chunks.append(text[:split_index])
-        text = text[split_index:].lstrip() # Remove leading space
+        text = text[split_index:].lstrip() 
     chunks.append(text)
     return chunks
 
@@ -72,27 +88,11 @@ def split_audio(file_path, chunk_length_ms=60_000):
 
 def transcribe_whisper(file_path):
     """Transcribe audio in chunks using Whisper."""
-    # Note: Whisper can handle long files, but chunking can be more robust
-    # for very long audio or lower memory.
-    # Simple method:
     print(f"Transcribing {file_path} with Whisper...")
     result = model.transcribe(file_path)
     print("Transcription complete.")
     return result["text"]
     
-    # Your chunking method (can be slower but safer for memory):
-    # chunk_files = split_audio(file_path, chunk_length_ms=10 * 60 * 1000) # 10 min chunks
-    # transcripts = []
-    # for chunk_file in chunk_files:
-    #     try:
-    #         result = model.transcribe(chunk_file)
-    #         transcripts.append(result["text"])
-    #     except Exception as e:
-    #         print(f"❌ Failed on chunk {chunk_file}:", e)
-    #     finally:
-    #         if os.path.exists(chunk_file):
-    #             os.remove(chunk_file)
-    # return " ".join(transcripts)
 
 
 # ------------------------------
@@ -100,6 +100,7 @@ def transcribe_whisper(file_path):
 # ------------------------------
 @app.route("/transcripts", methods=["POST"])
 def get_transcripts():
+    start_time = time.time()
     data = request.get_json()
     urls = data.get("urls", [])
 
@@ -112,8 +113,8 @@ def get_transcripts():
     # --- NEW PLAYLIST EXPANSION LOGIC ---
     expanded_urls = []
     playlist_ydl_opts = {
-        'extract_flat': True,  # Get playlist metadata, not all video info
-        'noplaylist': False, # We WANT to process playlists here
+        'extract_flat': True,  
+        'noplaylist': False, 
         'quiet': True,
     }
 
@@ -132,16 +133,13 @@ def get_transcripts():
                         print(f"Added {len(info['entries'])} videos from playlist.")
                 except Exception as e:
                     print(f"Could not expand playlist {url}: {e}")
-                    # Optionally add an error, or just skip it
                     results.append({"url": url, "error": f"Failed to expand playlist: {str(e)}"})
             else:
-                # It's just a regular video URL
                 expanded_urls.append(url)
     
     print(f"Total videos to process after expansion: {len(expanded_urls)}")
     # --- END OF NEW LOGIC ---
 
-    # NOW, iterate over the EXPANDED list
     for url in expanded_urls:
         print(f"🟦 Processing {url}...")
         video_id = extract_video_id(url)
@@ -153,7 +151,6 @@ def get_transcripts():
             results.append({"url": url, "error": "Could not parse YouTube video ID"})
             continue
 
-        # Try YouTubeTranscriptApi
         try:
             transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=["en", "en-US", "en-GB"])
             transcript_text = " ".join([t["text"] for t in transcript_list])
@@ -164,7 +161,7 @@ def get_transcripts():
             try:
                 ydl_opts = {
                     "format": "bestaudio/best",
-                    "outtmpl": "temp_audio.%(ext)s", # Use a consistent name
+                    "outtmpl": "temp_audio.%(ext)s",
                     "noplaylist": True,
                     "quiet": True,
                     "postprocessors": [{
@@ -180,7 +177,6 @@ def get_transcripts():
                 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(url, download=True)
-                    # ffmpeg post-processor should have created 'temp_audio.wav'
                     filename = "temp_audio.wav"
                     if not os.path.exists(filename):
                          # Fallback if post-processor failed
@@ -215,7 +211,25 @@ def get_transcripts():
         })
 
     print("Finished processing all URLs.")
-    return jsonify(results)
+    
+    # Calculate metrics
+    end_time = time.time()
+    latency = end_time - start_time
+    total_tokens = sum(estimate_token_count(r.get("transcript", "")) for r in results if "transcript" in r)
+    throughput = total_tokens / latency if latency > 0 else 0
+    
+    metrics = {
+        "latency_seconds": round(latency, 2),
+        "total_tokens": total_tokens,
+        "throughput_tokens_per_second": round(throughput, 2)
+    }
+    
+    print(f"📊 Metrics: {metrics}")
+    
+    return jsonify({
+        "results": results,
+        "metrics": metrics
+    })
 
 
 # ------------------------------
@@ -223,6 +237,7 @@ def get_transcripts():
 # ------------------------------
 @app.route("/analyze", methods=["POST"])
 def analyze_transcript():
+    start_time = time.time()
     data = request.get_json()
     transcript = data.get("transcript")
     instruction = data.get(
@@ -241,10 +256,34 @@ def analyze_transcript():
         if len(chunks) == 1:
             print("Analyzing single chunk...")
             final_summary = analyze_text(instruction, chunks[0])
+            
+            # Calculate quality score
+            quality_score = calculate_quality_score(final_summary, chunks[0])
+            
+            # Calculate metrics
+            end_time = time.time()
+            latency = end_time - start_time
+            prompt_tokens = estimate_token_count(instruction)
+            output_tokens = estimate_token_count(final_summary)
+            total_tokens = prompt_tokens + output_tokens
+            throughput = total_tokens / latency if latency > 0 else 0
+            
+            metrics = {
+                "latency_seconds": round(latency, 2),
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": output_tokens,
+                "total_tokens": total_tokens,
+                "throughput_tokens_per_second": round(throughput, 2),
+                "quality_score": quality_score
+            }
+            
+            print(f"📊 Analysis Metrics: {metrics}")
+            
             return jsonify({
                 "chunks_analyzed": 1,
                 "partial_summaries": [],
-                "final_analysis": final_summary
+                "final_analysis": final_summary,
+                "metrics": metrics
             })
 
         # Process multiple chunks
@@ -262,20 +301,157 @@ def analyze_transcript():
             combined_text
         )
 
+        # Calculate quality score using original transcript
+        full_transcript = " ".join(chunks)
+        quality_score = calculate_quality_score(final_summary, full_transcript)
+
+        # Calculate metrics
+        end_time = time.time()
+        latency = end_time - start_time
+        prompt_tokens = estimate_token_count(instruction)
+        summary_tokens = sum(estimate_token_count(s) for s in summaries)
+        output_tokens = estimate_token_count(final_summary)
+        total_tokens = prompt_tokens + summary_tokens + output_tokens
+        throughput = total_tokens / latency if latency > 0 else 0
+        
+        metrics = {
+            "latency_seconds": round(latency, 2),
+            "prompt_tokens": prompt_tokens,
+            "partial_summary_tokens": summary_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": total_tokens,
+            "throughput_tokens_per_second": round(throughput, 2),
+            "quality_score": quality_score
+        }
+        
+        print(f"📊 Multi-chunk Analysis Metrics: {metrics}")
+
         return jsonify({
             "chunks_analyzed": len(chunks),
             "partial_summaries": summaries,
-            "final_analysis": final_summary
+            "final_analysis": final_summary,
+            "metrics": metrics
         })
 
     except Exception as e:
         print(f"❌ Analysis failed: {str(e)}")
-        return jsonify({"error": f"Failed to analyze transcript: {str(e)}"}), 500
+        end_time = time.time()
+        latency = end_time - start_time
+        return jsonify({
+            "error": f"Failed to analyze transcript: {str(e)}",
+            "latency_seconds": round(latency, 2)
+        }), 500
+
+
+@app.route("/analyze_with_config", methods=["POST"])
+def analyze_with_config():
+    """
+    Analyze a transcript using an ephemeral Llama instance created with provided config.
+    Request JSON: { transcript: str, prompt?: str, config?: { n_ctx, n_batch, n_threads, n_gpu_layers }, max_tokens?: int }
+    """
+    start_time = time.time()
+    data = request.get_json()
+    transcript = data.get("transcript")
+    instruction = data.get(
+        "prompt",
+        "Summarize the main ideas, arguments, and tone clearly and factually."
+    )
+    cfg = data.get("config", {}) or {}
+    max_tokens = int(data.get("max_tokens", 300))
+
+    if not transcript:
+        return jsonify({"error": "Missing transcript"}), 400
+
+    # Build Llama params with sensible defaults
+    llm_params = {
+        "model_path": MODEL_PATH,
+        "n_ctx": int(cfg.get("n_ctx", 8192)),
+        "n_batch": int(cfg.get("n_batch", 128)),
+        "n_threads": int(cfg.get("n_threads", 6)),
+        "n_gpu_layers": int(cfg.get("n_gpu_layers", 30)),
+        "use_mlock": True,
+        "verbose": False,
+    }
+
+    try:
+        print(f"Creating ephemeral Llama with params: {llm_params}")
+        local_llm = Llama(**llm_params)
+        prompt = f"{instruction}\n\nTranscript:\n{transcript}\n\nProvide a clear, structured analysis:"
+        t0 = time.time()
+        resp = local_llm.create_completion(
+            prompt=prompt,
+            temperature=0.5,
+            max_tokens=max_tokens,
+            top_p=0.9,
+        )
+        elapsed = time.time() - t0
+
+        # extract text
+        try:
+            text = resp["choices"][0]["text"]
+        except Exception:
+            text = str(resp)
+
+        # metrics
+        prompt_tokens = estimate_token_count(instruction)
+        output_tokens = estimate_token_count(text)
+        total_tokens = prompt_tokens + output_tokens
+        throughput = total_tokens / elapsed if elapsed > 0 else 0
+
+        # LLM-based quality rating (1-5 scale) - now using detailed evaluation
+        from hub import evaluate_analysis
+        quality_score = 3  # Default fallback
+        try:
+            eval_result = evaluate_analysis(transcript, text)
+            # Use insight score as overall quality_score for backward compatibility
+            quality_score = eval_result.get("insight", 3)
+            print(f"Detailed evaluation: {eval_result}")
+        except Exception as e:
+            print(f"Quality evaluation failed: {e}")
+            quality_score = 3
+
+        # LLM-based quality rating (1-5 scale) - now using detailed evaluation
+        from hub import evaluate_analysis
+        quality_score = 3  # Default fallback
+        eval_result = None
+        try:
+            eval_result = evaluate_analysis(transcript, text)
+            # Use insight score as overall quality_score for backward compatibility
+            quality_score = eval_result.get("insight", 3)
+            print(f"Detailed evaluation: {eval_result}")
+        except Exception as e:
+            print(f"Quality evaluation failed: {e}")
+            quality_score = 3
+
+        metrics = {
+            "latency_seconds": round(elapsed, 2),
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": total_tokens,
+            "throughput_tokens_per_second": round(throughput, 2),
+            "quality_score": quality_score,
+            "evaluation": eval_result  
+        }
+
+        return jsonify({
+            "final_analysis": text,
+            "metrics": metrics,
+            "config_used": llm_params,
+        })
+
+    except Exception as e:
+        print(f"❌ Ephemeral analysis failed: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        try:
+            del local_llm
+        except Exception:
+            pass
+        gc.collect()
 
 
 # ------------------------------
 # Run app
 # ------------------------------
 if __name__ == "__main__":
-    # Runs on http://127.0.0.1:5000 by default
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

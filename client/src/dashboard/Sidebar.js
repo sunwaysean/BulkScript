@@ -1,4 +1,3 @@
-// src/dashboard/Sidebar.js
 import React from "react";
 import "./Sidebar.css";
 
@@ -54,7 +53,6 @@ export default function Sidebar({
                       className="session-actions"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // confirm delete via parent handler
                         if (onDelete) onDelete(s);
                       }}
                       title="More"

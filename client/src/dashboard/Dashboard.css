@@ -1,7 +1,7 @@
 .dashboard-container {
   display: flex;
-  height: 100vh; /* full screen height */
-  overflow: hidden; /* prevent double-scroll */
+  height: 100vh; 
+  overflow: hidden; 
   background: #f5f7fb;
 }
 
@@ -16,11 +16,11 @@
     flex:1; 
     padding:20px; 
     transition: margin-left 0.2s ease; 
-    margin-left: 290px; /* space for fixed sidebar (default wide) */
+    margin-left: 290px; 
 }
 
 .main-area.expanded {
-  margin-left: 88px; /* when sidebar is collapsed */
+  margin-left: 88px; 
 }
 
 .main-header {
@@ -46,7 +46,7 @@
 
 .imported-banner {
   position: fixed;
-  left: 320px; /* keep it next to the fixed sidebar */
+  left: 320px; 
   right: 20px;
   top: 14px;
   background: #fff9e6;
@@ -111,7 +111,6 @@
   border: none;
 }
 
-/* --- Workspace & Panels --- */
 .workspace {
   display: flex;
   gap: 18px;
@@ -164,7 +163,6 @@
   cursor: pointer;
 }
 
-/* --- Inline Editable Title --- */
 .session-title-display {
   font-size: 1.6rem;
   font-weight: 600;
