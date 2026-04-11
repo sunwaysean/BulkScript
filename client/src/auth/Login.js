@@ -33,7 +33,7 @@ export default function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>BulkScript — Login</h2>
+        <h2>BulkScript Login</h2>
         <form onSubmit={onSubmit}>
           <label>Email</label>
           <input value={email} onChange={(e) => setEmail(e.target.value)} required />

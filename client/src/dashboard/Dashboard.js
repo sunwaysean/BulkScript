@@ -40,20 +40,41 @@ export default function Dashboard() {
     return () => { mountedRef.current = false; };
   }, []);
 
+  // Clear sessions and current when user changes
+  useEffect(() => {
+    setSessions([]);
+    setCurrent(null);
+    setUrlsText("");
+    setImportedCount(null);
+    setAnalyzingState(null);
+    setThroughputResults(null);
+    // Optionally clear localStorage if user is authenticated
+    if (user) {
+      try {
+        localStorage.removeItem("local_sessions");
+      } catch {}
+    }
+  }, [user]);
+
   // subscribe to user history
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
     if (!user) {
       // load local sessions from localStorage for unauthenticated users
       try {
         const raw = window.localStorage.getItem('local_sessions');
         const local = raw ? JSON.parse(raw) : [];
         setSessions(local);
+        setCurrent(local && local.length > 0 ? local[0] : null);
       } catch (e) {
         console.warn('Failed to load local sessions', e);
         setSessions([]);
+        setCurrent(null);
       }
       return;
     }
+    // Authenticated: always use Firestore, never localStorage
     const unsub = listenUserHistory(user.uid, async (items) => {
       console.log('listenUserHistory: received items count', items.length, items.map(it => ({ id: it.id, title: it.title })));
       setSessions(items);
@@ -61,14 +82,10 @@ export default function Dashboard() {
       // If no current or current is null, pick newest item
       setCurrent((prev) => {
         if (!prev && items.length) {
-          // make sure current matches the shape used by this component
           const first = items[0];
-          // If Firestore saved sessions follow { title, urls, transcript, analysis, videos? } shape,
-          // try to use videos array if present, otherwise create videos from transcript field.
           if (first.videos && Array.isArray(first.videos)) {
             return { ...first };
           } else {
-            // attempt to split saved transcript into single video entry
             return {
               ...first,
               videos: [{
@@ -96,7 +113,7 @@ export default function Dashboard() {
       }
     });
     return () => unsub();
-  }, [user]);
+  }, [user, authLoading]);
 
   const toggle = () => setCollapsed((c) => !c);
 
@@ -264,15 +281,15 @@ export default function Dashboard() {
       return;
     }
 
+
     try {
       await deleteSession(user.uid, s.id);
       // remove from local sessions state (listener may update too)
       setSessions(prev => (prev || []).filter(it => it.id !== s.id));
       if (current && current.id === s.id) setCurrent(null);
-      console.log('handleDeleteSession: deleted', s.id);
     } catch (e) {
       console.error('handleDeleteSession: delete failed', e);
-      alert('Delete failed: ' + e.message);
+      alert('Delete failed: ' + (e.message || e));
     }
   };
 

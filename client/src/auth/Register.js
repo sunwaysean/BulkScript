@@ -24,7 +24,7 @@ export default function Register() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>BulkScript — Register</h2>
+        <h2>BulkScript Register</h2>
         <form onSubmit={onSubmit}>
           <label>Email</label>
           <input value={email} onChange={(e) => setEmail(e.target.value)} required />
